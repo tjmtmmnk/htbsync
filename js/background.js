@@ -1,16 +1,13 @@
 chrome.browserAction.onClicked.addListener((tab) => {
     chrome.bookmarks.getTree((trees) => {
-        trees.forEach((tree) => {
-            const bookmark_bars = tree.children;
-            const mainly_bookmark_bar_id = get_mainly_bookmark_bar_id(bookmark_bars);
-            create_bookmark_folder(mainly_bookmark_bar_id);
-        });
+        const bookmark_bars = trees[0].children;
+        const mainly_bookmark_bar_id = get_mainly_bookmark_bar_id(bookmark_bars);
+        create_bookmark_folder(mainly_bookmark_bar_id);
     });
 });
 
 function create_bookmark_folder(bookmark_bar_id) {
     chrome.bookmarks.search({ 'title': 'Extension bookmarks2' }, (folders) => {
-        console.log(folders);
         const folders_exclude_trash = folders.filter((folder) => !folder.trash && folder.parentId == bookmark_bar_id);
         const not_create_folder = folders_exclude_trash.length == 1;
         if (not_create_folder) {
