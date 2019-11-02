@@ -1,0 +1,38 @@
+{
+    "name": "htbsync",
+    "version": "1.0",
+    "description": "はてなブックマークとブラウザ(chromeなど)のブックマークを同期します",
+    "permissions": [
+        "bookmarks",
+        "tabs"
+    ],
+    "icons": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "48": "icons/icon48.png",
+        "64": "icons/icon64.png"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "js/content-script.js"
+            ]
+        }
+    ],
+    "background": {
+        "scripts": [
+            "js/background.js"
+        ],
+        "persistent": false
+    },
+    "browser_action": {
+        "default_icon": {
+            "32": "icons/icon32.png"
+        },
+        "default_title": "htbsync"
+    },
+    "manifest_version": 2
+}
