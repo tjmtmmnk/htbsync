@@ -16,7 +16,7 @@
     "content_scripts": [
         {
             "js": [
-                "js/oauth_verifier.js"
+                "js/browser-polyfill.min.js"
             ],
             "matches": [
                 "https://www.hatena.ne.jp/oauth/authorize"
@@ -28,7 +28,8 @@
         "scripts": [
             "js/chrome_ex_oauthsimple.js",
             "js/chrome_ex_oauth.js",
-            "js/background.js"
+            "js/background.js",
+            "js/browser-polyfill.min.js"
         ],
         "persistent": false
     },

@@ -12,26 +12,39 @@ var oauth = ChromeExOAuth.initBackgroundPage({
     'app_name': 'htbsync'
 });
 
-chrome.browserAction.onClicked.addListener((tab) => {
-    // chrome.bookmarks.getTree((trees) => {
-    //     const bookmark_bars = trees[0].children;
-    //     const mainly_bookmark_bar_id = get_mainly_bookmark_bar_id(bookmark_bars);
-    //     create_bookmark_folder(mainly_bookmark_bar_id);
-    // });
-    getBookmarks();
+chrome.browserAction.onClicked.addListener(() => {
+    browser.bookmarks.getTree()
+        .then((trees) => {
+            const bookmark_bars = trees[0].children;
+            const mainly_bookmark_bar_id = getMainlyBookmarkBar(bookmark_bars);
+            createBookmarkFolder(mainly_bookmark_bar_id)
+                .then(() => {
+                    console.log("create bookmark with new folder")
+                })
+                .catch(() => {
+                    console.log("create bookmark with exist folder")
+                });
+        });
+    // getHatenaBookmarks();
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, response) => {
     if (msg.action == "getAccessToken") {
         const reqToken = oauth.getReqToken();
-        console.log(reqToken);
-        console.log(encodeURIComponent(msg.verifier));
-        oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), getBookmarks);
+        oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => { });
         chrome.tabs.remove(sender.tab.id, () => { });
     }
 });
 
-function getBookmarks() {
+function onClickedIcon() {
+    browser.bookmarks.getTree()
+        .then(trees => {
+            const bookmark_bars = trees[0];
+
+        })
+}
+
+function getHatenaBookmarks() {
     const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
     oauth.authorize(() => {
         var request = {
@@ -45,7 +58,7 @@ function getBookmarks() {
     });
 }
 
-function get_mainly_bookmark_bar_id(bookmark_bars) {
+function getMainlyBookmarkBar(bookmark_bars) {
     var prev = -1;
     var mainly_bookmark_bar_id;
     bookmark_bars.forEach((bookmark_bar) => {
@@ -59,29 +72,35 @@ function get_mainly_bookmark_bar_id(bookmark_bars) {
     return mainly_bookmark_bar_id;
 }
 
-// TODO: Promise実装
-function create_bookmark_folder(bookmark_bar_id) {
-    const query_for_bookmark_folder = {
-        'title': BOOKMARK_FOLDER,
-        'url': null
-    };
-    chrome.bookmarks.search(query_for_bookmark_folder, (folders) => {
-        const folders_exclude_trash = folders.filter((folder) => !folder.trash && folder.parentId == bookmark_bar_id);
-        const create_folder = folders_exclude_trash.length == 0;
-        if (create_folder) {
-            chrome.bookmarks.create({
-                'parentId': bookmark_bar_id,
-                'title': BOOKMARK_FOLDER
-            },
-                (new_folder) => create_bookmarks(new_folder.id)
-            );
-        } else {
-            console.log("already exist");
-        }
+function createBookmarkFolder(bookmark_bar_id) {
+    return new Promise((resolve, reject) => {
+        const query_for_bookmark_folder = {
+            'title': BOOKMARK_FOLDER,
+            'url': null
+        };
+        browser.bookmarks.search(query_for_bookmark_folder)
+            .then((folders) => {
+                const folders_exclude_trash = folders.filter((folder) => !folder.trash && folder.parentId == bookmark_bar_id);
+                const create_folder = folders_exclude_trash.length == 0;
+                if (create_folder) {
+                    browser.bookmarks.create({
+                        'parentId': bookmark_bar_id,
+                        'title': BOOKMARK_FOLDER
+                    })
+                        .then(
+                            () => resolve("create new folder")
+                        )
+                        .catch(
+                            (err) => console.log(err)
+                        );
+                } else {
+                    reject("already exists");
+                }
+            });
     });
 }
 
-function create_bookmarks(bookmark_folder_id) {
+function createBookmarks(bookmark_folder_id) {
     chrome.bookmarks.create({
         'parentId': bookmark_folder_id,
         'title': 'dev',
@@ -121,8 +140,6 @@ function parseLineByLine(text) {
 }
 
 /**
- * search.dataについては`/doc/search.data-format.md`を参照
- *
  * @param {string} text
  * @returns {
     title: "string",
