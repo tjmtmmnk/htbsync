@@ -31,22 +31,18 @@ chrome.browserAction.onClicked.addListener(async () => {
             'method': 'GET',
             'parameters': {}
         };
-        oauth.sendSignedRequest(BOOKMARK_URL, bookmarks => {
-            parseHatenaBookmarkRawData(bookmarks)
-                .then(parsed_hatebu_list => {
-                    parsed_hatebu_list.forEach(hatebu => {
-                        browser.bookmarks.search({ url: hatebu.url })
-                            .then(bookmarks => {
-                                // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
-                                const bookmarks_exclude_trash = bookmarks.filter(bookmark => !bookmark.trash);
-                                if (bookmarks_exclude_trash.length == 0) {
-                                    console.log("create " + hatebu.url);
-                                    createBookmark(folder_id, hatebu);
-                                }
-                            });
-                    });
-                })
-                .catch(err => console.log(err));
+        oauth.sendSignedRequest(BOOKMARK_URL, async (bookmarks) => {
+            const parsed_hatebu_list = await parseHatenaBookmarkRawData(bookmarks);
+
+            parsed_hatebu_list.forEach(async (hatebu) => {
+                const exist_bookmarks = await browser.bookmarks.search({ url: hatebu.url });
+                // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
+                const bookmarks_exclude_trash = exist_bookmarks.filter(bookmark => !bookmark.trash);
+                if (bookmarks_exclude_trash.length == 0) {
+                    console.log("create " + hatebu.url);
+                    createBookmark(folder_id, hatebu);
+                }
+            });
         }, request);
     });
 });
@@ -122,27 +118,30 @@ function parseLineByLine(text) {
 
 /**
  * @param {string} text
- * @returns {{title: "string", comment: "string", url: "string", date: new Date()} []}
+ * @returns {Promise<{title: "string", comment: "string", url: "string", date: new Date()} []>}
  */
-async function parseHatenaBookmarkRawData(text) {
-    if (text == null) {
-        return [];
-    }
-    var myDataTuple = parseLineByLine(text);
-    if (myDataTuple.bookmarks.length === 0 || myDataTuple.lines.length === 0) {
-        return [];
-    }
-    return myDataTuple.lines.map(function (metaInfo, index) {
-        var bIndex = index * 3;
-        var timestamp = metaInfo.split("\t", 2)[1];
-        var title = myDataTuple.bookmarks[bIndex];
-        var comment = myDataTuple.bookmarks[bIndex + 1];
-        var url = myDataTuple.bookmarks[bIndex + 2];
-        return {
-            title: title,
-            comment: comment,
-            url: url,
-            date: dateFromString(timestamp)
+function parseHatenaBookmarkRawData(text) {
+    return new Promise(resolve => {
+        if (text == null) {
+            resolve([]);
         }
+        var myDataTuple = parseLineByLine(text);
+        if (myDataTuple.bookmarks.length === 0 || myDataTuple.lines.length === 0) {
+            resolve([]);
+        }
+        const parsed_hatebu_list = myDataTuple.lines.map((metaInfo, index) => {
+            var bIndex = index * 3;
+            var timestamp = metaInfo.split("\t", 2)[1];
+            var title = myDataTuple.bookmarks[bIndex];
+            var comment = myDataTuple.bookmarks[bIndex + 1];
+            var url = myDataTuple.bookmarks[bIndex + 2];
+            return {
+                title: title,
+                comment: comment,
+                url: url,
+                date: dateFromString(timestamp)
+            }
+        });
+        resolve(parsed_hatebu_list);
     });
 }
