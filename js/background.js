@@ -31,21 +31,37 @@ chrome.browserAction.onClicked.addListener(async () => {
             'method': 'GET',
             'parameters': {}
         };
-        oauth.sendSignedRequest(BOOKMARK_URL, async (bookmarks) => {
-            const parsed_hatebu_list = await parseHatenaBookmarkRawData(bookmarks);
-
-            parsed_hatebu_list.forEach(async (hatebu) => {
-                const exist_bookmarks = await browser.bookmarks.search({ url: hatebu.url });
-                // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
-                const bookmarks_exclude_trash = exist_bookmarks.filter(bookmark => !bookmark.trash);
-                if (bookmarks_exclude_trash.length == 0) {
-                    console.log("create " + hatebu.url);
-                    createBookmark(folder_id, hatebu);
-                }
-            });
+        oauth.sendSignedRequest(BOOKMARK_URL, async (hatebu_list) => {
+            const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
+            await createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
+            await deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
         }, request);
     });
 });
+
+async function createBookmarkFromHatebuList(folder_id, parsed_hatebu_list) {
+    parsed_hatebu_list.forEach(async (hatebu) => {
+        const exist_bookmarks = await browser.bookmarks.search({ url: hatebu.url });
+        // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
+        const bookmarks_exclude_trash = exist_bookmarks.filter(bookmark => !bookmark.trash);
+        if (bookmarks_exclude_trash.length == 0) {
+            console.log("create " + hatebu.url);
+            createBookmark(folder_id, hatebu);
+        }
+    });
+}
+
+async function deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list) {
+    const folder_node = await browser.bookmarks.getSubTree(folder_id);
+    const bookmarks_in_folder = folder_node[0].children;
+    bookmarks_in_folder.forEach(bookmark => {
+        const is_delete = (parsed_hatebu_list.filter(hatebu => hatebu.url == bookmark.url).length == 0);
+        if (is_delete) {
+            console.log("delete " + bookmark.url);
+            browser.bookmarks.remove(bookmark.id);
+        }
+    });
+}
 
 function createBookmarkFolder(bookmark_bar_id) {
     return new Promise(resolve => {
