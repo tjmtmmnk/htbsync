@@ -1,14 +1,168 @@
 const BOOKMARK_FOLDER = 'Import from hatena bookmark';
+const CONSUMER_KEY = "xxx";
+const CONSUMER_SECRET = "xxx";
 
-chrome.browserAction.onClicked.addListener((tab) => {
-    chrome.bookmarks.getTree((trees) => {
-        const bookmark_bars = trees[0].children;
-        const mainly_bookmark_bar_id = get_mainly_bookmark_bar_id(bookmark_bars);
-        create_bookmark_folder(mainly_bookmark_bar_id);
+var oauth = ChromeExOAuth.initBackgroundPage({
+const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
+const BOOKMARK_ID = 1;
+const oauth = ChromeExOAuth.initBackgroundPage({
+    'request_url': 'https://www.hatena.com/oauth/initiate',
+    'authorize_url': 'https://www.hatena.ne.jp/oauth/authorize',
+    'access_url': 'https://www.hatena.com/oauth/token',
+    'consumer_key': CONSUMER_KEY,
+    'consumer_secret': CONSUMER_SECRET,
+    'scope': 'read_public',
+    'app_name': 'htbsync'
+});
+
+chrome.runtime.onMessage.addListener((msg, sender, response) => {
+    if (msg.action == "getAccessToken") {
+        const reqToken = oauth.getReqToken();
+        oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => { });
+        chrome.tabs.remove(sender.tab.id, () => { });
+    }
+});
+
+chrome.browserAction.onClicked.addListener(() => {
+    oauth.authorize(() => {
+        const request = {
+            'method': 'GET',
+            'parameters': {}
+        };
+        oauth.sendSignedRequest(BOOKMARK_URL, (bookmarks) => {
+            const parsed_hatebu = parseHatenaBookmarkRawData(bookmarks);
+            parsed_hatebu.forEach((hatebu) => {
+                browser.bookmarks.search({ url: hatebu.url })
+                    .then((bookmarks) => {
+                        // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
+                        const bookmarks_exclude_trash = bookmarks.filter((bookmark) => !bookmark.trash);
+                        if (bookmarks_exclude_trash.length == 0) {
+                            console.log("aaa");
+                            createBookmarkFolder(BOOKMARK_ID)
+                                .then((new_folder_id) => {
+                                    createBookmark(new_folder_id, hatebu);
+                                })
+                                .catch((exist_folder_id) => {
+                                    createBookmark(exist_folder_id, hatebu);
+                                });
+                        }
+                    });
+            });
+        }, request);
     });
 });
 
-function get_mainly_bookmark_bar_id(bookmark_bars) {
+// 与えられたbookmarkのurlがブラウザに存在しているかどうかを判定
+function isExistBookmarkOnBrowser(bookmark_url) {
+    browser.bookmarks.search({ url: bookmark_url })
+        .then((bookmarks) => {
+            // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
+            const bookmarks_exclude_trash = bookmarks.filter((bookmark) => !bookmark.trash);
+            return bookmarks_exclude_trash.length >= 1
+        });
+}
+
+function createBookmarkFolder(bookmark_bar_id) {
+    return new Promise((resolve, reject) => {
+        const query_for_bookmark_folder = {
+            'title': BOOKMARK_FOLDER,
+            'url': null
+        };
+        browser.bookmarks.search(query_for_bookmark_folder)
+            .then((folders) => {
+                const folders_exclude_trash = folders.filter((folder) => !folder.trash && folder.parentId == bookmark_bar_id);
+                const create_folder = folders_exclude_trash.length == 0;
+                if (create_folder) {
+                    browser.bookmarks.create({
+                        'parentId': bookmark_bar_id,
+                        'title': BOOKMARK_FOLDER
+                    })
+                        .then(
+                            (new_folder) => resolve(new_folder.id)
+                        )
+                        .catch(
+                            (err) => console.log(err)
+                        );
+                } else {
+                    reject(folders_exclude_trash[0].id);
+                }
+            });
+    });
+}
+
+/**
+ * @param {number} folder_id
+ * @param {{title: "string", comment: "string", url: "string", date: new Date()} []} hatena_bookmarks
+ */
+function createBookmark(folder_id, hatebu) {
+    const bookmark = {
+        parentId: folder_id,
+        url: hatebu.url,
+        title: hatebu.title
+    };
+    chrome.bookmarks.create(bookmark);
+}
+
+/**
+ * create Date object from yyyymmddhhmmss string
+ * @param {string} dateStr yyyymmddhhmmss
+ * @returns {Date}
+ */
+function dateFromString(dateStr) {
+    // dateStr
+    // yyyymmddhhmmss
+    return new Date(
+        dateStr.substring(0, 4),
+        parseInt(dateStr.substr(4, 2), 10) - 1,
+        dateStr.substr(6, 2),
+        dateStr.substr(8, 2),
+        dateStr.substr(10, 2),
+        dateStr.substr(12, 2)
+    );
+}
+/**
+ * create tuple that
+ * @param text
+ * @returns {{bookmarks: string[], lines: string[]}}
+ */
+function parseLineByLine(text) {
+    var lines = text.trim().split("\n");
+    var bookmarks = lines.splice(0, lines.length * 3 / 4);
+    return {
+        bookmarks: bookmarks,
+        lines: lines
+    };
+}
+
+/**
+ * @param {string} text
+ * @returns {{title: "string", comment: "string", url: "string", date: new Date()} []}
+ */
+function parseHatenaBookmarkRawData(text) {
+    if (text == null) {
+        return [];
+    }
+    var myDataTuple = parseLineByLine(text);
+    if (myDataTuple.bookmarks.length === 0 || myDataTuple.lines.length === 0) {
+        return [];
+    }
+    return myDataTuple.lines.map(function (metaInfo, index) {
+        var bIndex = index * 3;
+        var timestamp = metaInfo.split("\t", 2)[1];
+        var title = myDataTuple.bookmarks[bIndex];
+        var comment = myDataTuple.bookmarks[bIndex + 1];
+        var url = myDataTuple.bookmarks[bIndex + 2];
+        return {
+            title: title,
+            comment: comment,
+            url: url,
+            date: dateFromString(timestamp)
+        }
+    });
+}
+
+// TODO: popupから取得したい
+function getMainlyBookmarkBar(bookmark_bars) {
     var prev = -1;
     var mainly_bookmark_bar_id;
     bookmark_bars.forEach((bookmark_bar) => {
@@ -20,35 +174,4 @@ function get_mainly_bookmark_bar_id(bookmark_bars) {
         }
     });
     return mainly_bookmark_bar_id;
-}
-
-// TODO: Promise実装
-function create_bookmark_folder(bookmark_bar_id) {
-    const query_for_bookmark_folder = {
-        'title': BOOKMARK_FOLDER,
-        'url': null
-    };
-    chrome.bookmarks.search(query_for_bookmark_folder, (folders) => {
-        const folders_exclude_trash = folders.filter((folder) => !folder.trash && folder.parentId == bookmark_bar_id);
-        const create_folder = folders_exclude_trash.length == 0;
-        if (create_folder) {
-            chrome.bookmarks.create({
-                'parentId': bookmark_bar_id,
-                'title': BOOKMARK_FOLDER
-            },
-                (new_folder) => create_bookmarks(new_folder.id)
-            );
-        } else {
-            console.log("already exist");
-        }
-    });
-}
-
-function create_bookmarks(bookmark_folder_id) {
-    chrome.bookmarks.create({
-        'parentId': bookmark_folder_id,
-        'title': 'dev',
-        'url': 'https://developer.chrome.com/extensions/bookmarks#method-search'
-    }, () => console.log("create with in folder")
-    );
 }
