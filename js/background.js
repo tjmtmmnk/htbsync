@@ -4,7 +4,7 @@ const CONSUMER_SECRET = "xxx";
 
 var oauth = ChromeExOAuth.initBackgroundPage({
 const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
-const BOOKMARK_ID = 1;
+const BOOKMARK_ID = '1';
 const oauth = ChromeExOAuth.initBackgroundPage({
     'request_url': 'https://www.hatena.com/oauth/initiate',
     'authorize_url': 'https://www.hatena.ne.jp/oauth/authorize',
@@ -24,6 +24,11 @@ chrome.runtime.onMessage.addListener((msg, sender, response) => {
 });
 
 chrome.browserAction.onClicked.addListener(() => {
+    var folder_id;
+    createBookmarkFolder(BOOKMARK_ID)
+        .then((new_folder_id) => { folder_id = new_folder_id })
+        .catch((exist_folder_id) => { folder_id = exist_folder_id });
+
     oauth.authorize(() => {
         const request = {
             'method': 'GET',
@@ -37,30 +42,14 @@ chrome.browserAction.onClicked.addListener(() => {
                         // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
                         const bookmarks_exclude_trash = bookmarks.filter((bookmark) => !bookmark.trash);
                         if (bookmarks_exclude_trash.length == 0) {
-                            console.log("aaa");
-                            createBookmarkFolder(BOOKMARK_ID)
-                                .then((new_folder_id) => {
-                                    createBookmark(new_folder_id, hatebu);
-                                })
-                                .catch((exist_folder_id) => {
-                                    createBookmark(exist_folder_id, hatebu);
-                                });
+                            console.log("create " + hatebu.url);
+                            createBookmark(folder_id, hatebu);
                         }
                     });
             });
         }, request);
     });
 });
-
-// 与えられたbookmarkのurlがブラウザに存在しているかどうかを判定
-function isExistBookmarkOnBrowser(bookmark_url) {
-    browser.bookmarks.search({ url: bookmark_url })
-        .then((bookmarks) => {
-            // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
-            const bookmarks_exclude_trash = bookmarks.filter((bookmark) => !bookmark.trash);
-            return bookmarks_exclude_trash.length >= 1
-        });
-}
 
 function createBookmarkFolder(bookmark_bar_id) {
     return new Promise((resolve, reject) => {
@@ -92,7 +81,7 @@ function createBookmarkFolder(bookmark_bar_id) {
 
 /**
  * @param {number} folder_id
- * @param {{title: "string", comment: "string", url: "string", date: new Date()} []} hatena_bookmarks
+ * @param {{title: "string", comment: "string", url: "string", date: new Date()}} hatena_bookmarks
  */
 function createBookmark(folder_id, hatebu) {
     const bookmark = {
@@ -103,6 +92,7 @@ function createBookmark(folder_id, hatebu) {
     chrome.bookmarks.create(bookmark);
 }
 
+// はてなブックマーク parserライブラリ
 /**
  * create Date object from yyyymmddhhmmss string
  * @param {string} dateStr yyyymmddhhmmss
@@ -159,19 +149,4 @@ function parseHatenaBookmarkRawData(text) {
             date: dateFromString(timestamp)
         }
     });
-}
-
-// TODO: popupから取得したい
-function getMainlyBookmarkBar(bookmark_bars) {
-    var prev = -1;
-    var mainly_bookmark_bar_id;
-    bookmark_bars.forEach((bookmark_bar) => {
-        if (!bookmark_bar.trash) {
-            if (prev < bookmark_bar.children.length) {
-                mainly_bookmark_bar_id = bookmark_bar.id;
-            }
-            prev = bookmark_bar.children.length;
-        }
-    });
-    return mainly_bookmark_bar_id;
 }
