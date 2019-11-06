@@ -15,67 +15,63 @@ const oauth = ChromeExOAuth.initBackgroundPage({
     'app_name': 'htbsync'
 });
 
-chrome.runtime.onMessage.addListener((msg, sender, response) => {
+chrome.runtime.onMessage.addListener((msg, sender) => {
     if (msg.action == "getAccessToken") {
         const reqToken = oauth.getReqToken();
         oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => { });
-        chrome.tabs.remove(sender.tab.id, () => { });
+        chrome.tabs.remove(sender.tab.id);
     }
 });
 
-chrome.browserAction.onClicked.addListener(() => {
-    var folder_id;
-    createBookmarkFolder(BOOKMARK_ID)
-        .then((new_folder_id) => { folder_id = new_folder_id })
-        .catch((exist_folder_id) => { folder_id = exist_folder_id });
+chrome.browserAction.onClicked.addListener(async () => {
+    const folder_id = await createBookmarkFolder(BOOKMARK_ID);
 
     oauth.authorize(() => {
         const request = {
             'method': 'GET',
             'parameters': {}
         };
-        oauth.sendSignedRequest(BOOKMARK_URL, (bookmarks) => {
-            const parsed_hatebu = parseHatenaBookmarkRawData(bookmarks);
-            parsed_hatebu.forEach((hatebu) => {
-                browser.bookmarks.search({ url: hatebu.url })
-                    .then((bookmarks) => {
-                        // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
-                        const bookmarks_exclude_trash = bookmarks.filter((bookmark) => !bookmark.trash);
-                        if (bookmarks_exclude_trash.length == 0) {
-                            console.log("create " + hatebu.url);
-                            createBookmark(folder_id, hatebu);
-                        }
+        oauth.sendSignedRequest(BOOKMARK_URL, bookmarks => {
+            parseHatenaBookmarkRawData(bookmarks)
+                .then(parsed_hatebu_list => {
+                    parsed_hatebu_list.forEach(hatebu => {
+                        browser.bookmarks.search({ url: hatebu.url })
+                            .then(bookmarks => {
+                                // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
+                                const bookmarks_exclude_trash = bookmarks.filter(bookmark => !bookmark.trash);
+                                if (bookmarks_exclude_trash.length == 0) {
+                                    console.log("create " + hatebu.url);
+                                    createBookmark(folder_id, hatebu);
+                                }
+                            });
                     });
-            });
+                })
+                .catch(err => console.log(err));
         }, request);
     });
 });
 
 function createBookmarkFolder(bookmark_bar_id) {
-    return new Promise((resolve, reject) => {
+    return new Promise(resolve => {
         const query_for_bookmark_folder = {
             'title': BOOKMARK_FOLDER,
             'url': null
         };
         browser.bookmarks.search(query_for_bookmark_folder)
-            .then((folders) => {
-                const folders_exclude_trash = folders.filter((folder) => !folder.trash && folder.parentId == bookmark_bar_id);
+            .then(folders => {
+                const folders_exclude_trash = folders.filter(folder => !folder.trash && folder.parentId == bookmark_bar_id);
                 const create_folder = folders_exclude_trash.length == 0;
                 if (create_folder) {
                     browser.bookmarks.create({
                         'parentId': bookmark_bar_id,
                         'title': BOOKMARK_FOLDER
                     })
-                        .then(
-                            (new_folder) => resolve(new_folder.id)
-                        )
-                        .catch(
-                            (err) => console.log(err)
-                        );
+                        .then(new_folder => resolve(new_folder.id))
+                        .catch(err => console.log(err));
                 } else {
-                    reject(folders_exclude_trash[0].id);
+                    resolve(folders_exclude_trash[0].id);
                 }
-            });
+            })
     });
 }
 
@@ -89,7 +85,7 @@ function createBookmark(folder_id, hatebu) {
         url: hatebu.url,
         title: hatebu.title
     };
-    chrome.bookmarks.create(bookmark);
+    browser.bookmarks.create(bookmark);
 }
 
 // はてなブックマーク parserライブラリ
@@ -128,7 +124,7 @@ function parseLineByLine(text) {
  * @param {string} text
  * @returns {{title: "string", comment: "string", url: "string", date: new Date()} []}
  */
-function parseHatenaBookmarkRawData(text) {
+async function parseHatenaBookmarkRawData(text) {
     if (text == null) {
         return [];
     }
