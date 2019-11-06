@@ -32,15 +32,16 @@ chrome.runtime.onMessage.addListener((msg, sender, response) => {
 });
 
 function getBookmarks() {
-    const BOOKMARK_URL = "https://bookmark.hatenaapis.com/rest/1/my/bookmark";
+    const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
     oauth.authorize(() => {
         var request = {
             'method': 'GET',
-            'parameters': {
-                'url': 'http://pppurple.hatenablog.com/entry/2016/03/05/225723'
-            }
+            'parameters': {}
         };
-        oauth.sendSignedRequest(BOOKMARK_URL, (bookmarks) => console.log(bookmarks), request);
+        oauth.sendSignedRequest(BOOKMARK_URL, (bookmarks) => {
+            const parsed = parse(bookmarks);
+            console.log(parsed)
+        }, request);
     });
 }
 
@@ -86,4 +87,69 @@ function create_bookmarks(bookmark_folder_id) {
         'title': 'dev',
         'url': 'https://developer.chrome.com/extensions/bookmarks#method-search'
     }, () => console.log("create with in folder"));
+}
+
+/**
+ * create Date object from yyyymmddhhmmss string
+ * @param {string} dateStr yyyymmddhhmmss
+ * @returns {Date}
+ */
+function dateFromString(dateStr) {
+    // dateStr
+    // yyyymmddhhmmss
+    return new Date(
+        dateStr.substring(0, 4),
+        parseInt(dateStr.substr(4, 2), 10) - 1,
+        dateStr.substr(6, 2),
+        dateStr.substr(8, 2),
+        dateStr.substr(10, 2),
+        dateStr.substr(12, 2)
+    );
+}
+/**
+ * create tuple that
+ * @param text
+ * @returns {{bookmarks: string[], lines: string[]}}
+ */
+function parseLineByLine(text) {
+    var lines = text.trim().split("\n");
+    var bookmarks = lines.splice(0, lines.length * 3 / 4);
+    return {
+        bookmarks: bookmarks,
+        lines: lines
+    };
+}
+
+/**
+ * search.dataについては`/doc/search.data-format.md`を参照
+ *
+ * @param {string} text
+ * @returns {
+    title: "string",
+    comment: "string",
+    url: "string",
+    date: new Date()
+} Date
+ */
+function parse(text) {
+    if (text == null) {
+        return [];
+    }
+    var myDataTuple = parseLineByLine(text);
+    if (myDataTuple.bookmarks.length === 0 || myDataTuple.lines.length === 0) {
+        return [];
+    }
+    return myDataTuple.lines.map(function (metaInfo, index) {
+        var bIndex = index * 3;
+        var timestamp = metaInfo.split("\t", 2)[1];
+        var title = myDataTuple.bookmarks[bIndex];
+        var comment = myDataTuple.bookmarks[bIndex + 1];
+        var url = myDataTuple.bookmarks[bIndex + 2];
+        return {
+            title: title,
+            comment: comment,
+            url: url,
+            date: dateFromString(timestamp)
+        }
+    });
 }
