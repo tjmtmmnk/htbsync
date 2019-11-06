@@ -16,6 +16,7 @@
     "content_scripts": [
         {
             "js": [
+                "js/oauth_verifier.js",
                 "js/browser-polyfill.min.js"
             ],
             "matches": [

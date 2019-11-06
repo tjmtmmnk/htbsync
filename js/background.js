@@ -3,6 +3,9 @@ const CONSUMER_KEY = "xxx";
 const CONSUMER_SECRET = "xxx";
 
 var oauth = ChromeExOAuth.initBackgroundPage({
+const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
+const BOOKMARK_ID = 1;
+const oauth = ChromeExOAuth.initBackgroundPage({
     'request_url': 'https://www.hatena.com/oauth/initiate',
     'authorize_url': 'https://www.hatena.ne.jp/oauth/authorize',
     'access_url': 'https://www.hatena.com/oauth/token',
@@ -10,22 +13,6 @@ var oauth = ChromeExOAuth.initBackgroundPage({
     'consumer_secret': CONSUMER_SECRET,
     'scope': 'read_public',
     'app_name': 'htbsync'
-});
-
-chrome.browserAction.onClicked.addListener(() => {
-    browser.bookmarks.getTree()
-        .then((trees) => {
-            const bookmark_bars = trees[0].children;
-            const mainly_bookmark_bar_id = getMainlyBookmarkBar(bookmark_bars);
-            createBookmarkFolder(mainly_bookmark_bar_id)
-                .then(() => {
-                    console.log("create bookmark with new folder")
-                })
-                .catch(() => {
-                    console.log("create bookmark with exist folder")
-                });
-        });
-    // getHatenaBookmarks();
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, response) => {
@@ -36,40 +23,43 @@ chrome.runtime.onMessage.addListener((msg, sender, response) => {
     }
 });
 
-function onClickedIcon() {
-    browser.bookmarks.getTree()
-        .then(trees => {
-            const bookmark_bars = trees[0];
-
-        })
-}
-
-function getHatenaBookmarks() {
-    const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
+chrome.browserAction.onClicked.addListener(() => {
     oauth.authorize(() => {
-        var request = {
+        const request = {
             'method': 'GET',
             'parameters': {}
         };
         oauth.sendSignedRequest(BOOKMARK_URL, (bookmarks) => {
-            const parsed = parse(bookmarks);
-            console.log(parsed)
+            const parsed_hatebu = parseHatenaBookmarkRawData(bookmarks);
+            parsed_hatebu.forEach((hatebu) => {
+                browser.bookmarks.search({ url: hatebu.url })
+                    .then((bookmarks) => {
+                        // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
+                        const bookmarks_exclude_trash = bookmarks.filter((bookmark) => !bookmark.trash);
+                        if (bookmarks_exclude_trash.length == 0) {
+                            console.log("aaa");
+                            createBookmarkFolder(BOOKMARK_ID)
+                                .then((new_folder_id) => {
+                                    createBookmark(new_folder_id, hatebu);
+                                })
+                                .catch((exist_folder_id) => {
+                                    createBookmark(exist_folder_id, hatebu);
+                                });
+                        }
+                    });
+            });
         }, request);
     });
-}
+});
 
-function getMainlyBookmarkBar(bookmark_bars) {
-    var prev = -1;
-    var mainly_bookmark_bar_id;
-    bookmark_bars.forEach((bookmark_bar) => {
-        if (!bookmark_bar.trash) {
-            if (prev < bookmark_bar.children.length) {
-                mainly_bookmark_bar_id = bookmark_bar.id;
-            }
-            prev = bookmark_bar.children.length;
-        }
-    });
-    return mainly_bookmark_bar_id;
+// 与えられたbookmarkのurlがブラウザに存在しているかどうかを判定
+function isExistBookmarkOnBrowser(bookmark_url) {
+    browser.bookmarks.search({ url: bookmark_url })
+        .then((bookmarks) => {
+            // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
+            const bookmarks_exclude_trash = bookmarks.filter((bookmark) => !bookmark.trash);
+            return bookmarks_exclude_trash.length >= 1
+        });
 }
 
 function createBookmarkFolder(bookmark_bar_id) {
@@ -88,24 +78,29 @@ function createBookmarkFolder(bookmark_bar_id) {
                         'title': BOOKMARK_FOLDER
                     })
                         .then(
-                            () => resolve("create new folder")
+                            (new_folder) => resolve(new_folder.id)
                         )
                         .catch(
                             (err) => console.log(err)
                         );
                 } else {
-                    reject("already exists");
+                    reject(folders_exclude_trash[0].id);
                 }
             });
     });
 }
 
-function createBookmarks(bookmark_folder_id) {
-    chrome.bookmarks.create({
-        'parentId': bookmark_folder_id,
-        'title': 'dev',
-        'url': 'https://developer.chrome.com/extensions/bookmarks#method-search'
-    }, () => console.log("create with in folder"));
+/**
+ * @param {number} folder_id
+ * @param {{title: "string", comment: "string", url: "string", date: new Date()} []} hatena_bookmarks
+ */
+function createBookmark(folder_id, hatebu) {
+    const bookmark = {
+        parentId: folder_id,
+        url: hatebu.url,
+        title: hatebu.title
+    };
+    chrome.bookmarks.create(bookmark);
 }
 
 /**
@@ -141,14 +136,9 @@ function parseLineByLine(text) {
 
 /**
  * @param {string} text
- * @returns {
-    title: "string",
-    comment: "string",
-    url: "string",
-    date: new Date()
-} Date
+ * @returns {{title: "string", comment: "string", url: "string", date: new Date()} []}
  */
-function parse(text) {
+function parseHatenaBookmarkRawData(text) {
     if (text == null) {
         return [];
     }
@@ -169,4 +159,19 @@ function parse(text) {
             date: dateFromString(timestamp)
         }
     });
+}
+
+// TODO: popupから取得したい
+function getMainlyBookmarkBar(bookmark_bars) {
+    var prev = -1;
+    var mainly_bookmark_bar_id;
+    bookmark_bars.forEach((bookmark_bar) => {
+        if (!bookmark_bar.trash) {
+            if (prev < bookmark_bar.children.length) {
+                mainly_bookmark_bar_id = bookmark_bar.id;
+            }
+            prev = bookmark_bar.children.length;
+        }
+    });
+    return mainly_bookmark_bar_id;
 }
