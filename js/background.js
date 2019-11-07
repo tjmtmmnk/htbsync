@@ -4,7 +4,7 @@ const CONSUMER_SECRET = "xxx";
 
 var oauth = ChromeExOAuth.initBackgroundPage({
 const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
-const BOOKMARK_ID = '1';
+
 const oauth = ChromeExOAuth.initBackgroundPage({
     'request_url': 'https://www.hatena.com/oauth/initiate',
     'authorize_url': 'https://www.hatena.ne.jp/oauth/authorize',
@@ -21,7 +21,6 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
             const reqToken = oauth.getReqToken();
             oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => {
                 console.log("authorized");
-                importHatebuToBrowser();
             });
             chrome.tabs.remove(sender.tab.id);
             break;
@@ -34,11 +33,18 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
                     });
                 });
             break;
+        case 'setBookmarkBarID':
+            chrome.storage.local.set({ 'bookmark_bar_id': msg.id });
+            break;
+        case 'importHatebu':
+            importHatebuToBrowser();
+            break;
     }
 });
 
 async function importHatebuToBrowser() {
-    const folder_id = await createBookmarkFolder(BOOKMARK_ID);
+    const bookmark_bar_id = await getBookmarkBarId();
+    const folder_id = await createBookmarkFolder(bookmark_bar_id);
 
     oauth.authorize(() => {
         const request = {
@@ -75,6 +81,13 @@ async function deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list) {
             browser.bookmarks.remove(bookmark.id);
         }
     });
+}
+
+async function getBookmarkBarId() {
+    const bookmark_bar_id_hash = await browser.storage.local.get('bookmark_bar_id');
+    const bookmark_bar_id = bookmark_bar_id_hash.bookmark_bar_id;
+    if (bookmark_bar_id === undefined) { alert('Please select a bookmark bar in popup'); }
+    return bookmark_bar_id;
 }
 
 function createBookmarkFolder(bookmark_bar_id) {

@@ -1,4 +1,4 @@
-window.onload = async () => {
+document.addEventListener('DOMContentLoaded', () => {
     chrome.runtime.sendMessage({ action: 'getBookmarkBars' });
 
     chrome.runtime.onMessage.addListener(msg => {
@@ -8,14 +8,24 @@ window.onload = async () => {
 
             bookmark_bars.forEach(bookmark_bar => {
                 let select_option = document.createElement('option');
-                console.log(select_option);
-                select_option.value = 'bookmark-bar-' + bookmark_bar.id;
+                select_option.value = bookmark_bar.id;
                 select_option.text = bookmark_bar.title;
                 select_box.appendChild(select_option);
             });
         }
     });
-};
 
-document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('select-button').addEventListener('click', () => {
+        const bookmark_bar_id = document.getElementById('select-box-bookmark-bar').value;
+        chrome.runtime.sendMessage({
+            action: 'setBookmarkBarID',
+            id: bookmark_bar_id
+        });
+    });
+
+    document.getElementById('import').addEventListener('click', () => {
+        chrome.runtime.sendMessage({
+            action: 'importHatebu'
+        });
+    });
 });
