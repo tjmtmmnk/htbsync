@@ -16,19 +16,25 @@ const oauth = ChromeExOAuth.initBackgroundPage({
 });
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
-    if (msg.action == "getAccessToken") {
-        const reqToken = oauth.getReqToken();
-        oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => {
-            console.log("authorized");
-            importHatebuToBrowser();
-        });
-        chrome.tabs.remove(sender.tab.id);
+    switch (msg.action) {
+        case 'getAccessToken':
+            const reqToken = oauth.getReqToken();
+            oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => {
+                console.log("authorized");
+                importHatebuToBrowser();
+            });
+            chrome.tabs.remove(sender.tab.id);
+            break;
+        case 'getBookmarkBars':
+            browser.bookmarks.getTree()
+                .then((bookmark_bars_node) => {
+                    chrome.runtime.sendMessage({
+                        action: 'selectedBookmarkBars',
+                        bookmark_bars: bookmark_bars_node[0].children
+                    });
+                });
+            break;
     }
-});
-
-chrome.browserAction.onClicked.addListener(async () => {
-    await importHatebuToBrowser();
-    console.log("imported");
 });
 
 async function importHatebuToBrowser() {
