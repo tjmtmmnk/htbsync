@@ -544,7 +544,8 @@ ChromeExOAuth.prototype.getAccessToken = function (oauth_token, oauth_verifier,
       path: this.url_access_token,
       parameters: {
         "oauth_token": oauth_token,
-        "oauth_verifier": oauth_verifier
+        "oauth_verifier": oauth_verifier,
+        'oauth_version': '1.0'
       },
       signatures: {
         consumer_key: this.consumer_key,

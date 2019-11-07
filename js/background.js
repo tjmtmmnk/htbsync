@@ -18,12 +18,20 @@ const oauth = ChromeExOAuth.initBackgroundPage({
 chrome.runtime.onMessage.addListener((msg, sender) => {
     if (msg.action == "getAccessToken") {
         const reqToken = oauth.getReqToken();
-        oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => { });
+        oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => {
+            console.log("authorized");
+            importHatebuToBrowser();
+        });
         chrome.tabs.remove(sender.tab.id);
     }
 });
 
 chrome.browserAction.onClicked.addListener(async () => {
+    await importHatebuToBrowser();
+    console.log("imported");
+});
+
+async function importHatebuToBrowser() {
     const folder_id = await createBookmarkFolder(BOOKMARK_ID);
 
     oauth.authorize(() => {
@@ -33,11 +41,11 @@ chrome.browserAction.onClicked.addListener(async () => {
         };
         oauth.sendSignedRequest(BOOKMARK_URL, async (hatebu_list) => {
             const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
-            await createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
-            await deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
+            createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
+            deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
         }, request);
     });
-});
+}
 
 async function createBookmarkFromHatebuList(folder_id, parsed_hatebu_list) {
     parsed_hatebu_list.forEach(async (hatebu) => {
