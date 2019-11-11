@@ -5,7 +5,8 @@
     "permissions": [
         "bookmarks",
         "tabs",
-        "<all_urls>"
+        "<all_urls>",
+        "storage"
     ],
     "icons": {
         "16": "icons/icon16.png",
@@ -17,12 +18,12 @@
         {
             "js": [
                 "js/oauth_verifier.js",
+                "js/popup.js",
                 "js/browser-polyfill.min.js"
             ],
             "matches": [
-                "https://www.hatena.ne.jp/oauth/authorize"
-            ],
-            "run_at": "document_end"
+                "<all_urls>"
+            ]
         }
     ],
     "background": {
@@ -38,7 +39,8 @@
         "default_icon": {
             "32": "icons/icon32.png"
         },
-        "default_title": "htbsync"
+        "default_title": "htbsync",
+        "default_popup": "popup.html"
     },
     "manifest_version": 2
 }

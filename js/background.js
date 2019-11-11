@@ -4,7 +4,7 @@ const CONSUMER_SECRET = "xxx";
 
 var oauth = ChromeExOAuth.initBackgroundPage({
 const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
-const BOOKMARK_ID = '1';
+
 const oauth = ChromeExOAuth.initBackgroundPage({
     'request_url': 'https://www.hatena.com/oauth/initiate',
     'authorize_url': 'https://www.hatena.ne.jp/oauth/authorize',
@@ -16,23 +16,32 @@ const oauth = ChromeExOAuth.initBackgroundPage({
 });
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
-    if (msg.action == "getAccessToken") {
-        const reqToken = oauth.getReqToken();
-        oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => {
-            console.log("authorized");
+    switch (msg.action) {
+        case 'getAccessToken':
+            const reqToken = oauth.getReqToken();
+            oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => {
+                console.log("authorized");
+            });
+            chrome.tabs.remove(sender.tab.id);
+            break;
+        case 'getBookmarkBars':
+            browser.bookmarks.getTree()
+                .then((bookmark_bars_node) => {
+                    chrome.runtime.sendMessage({
+                        action: 'selectedBookmarkBars',
+                        bookmark_bars: bookmark_bars_node[0].children
+                    });
+                });
+            break;
+        case 'importHatebu':
             importHatebuToBrowser();
-        });
-        chrome.tabs.remove(sender.tab.id);
+            break;
     }
 });
 
-chrome.browserAction.onClicked.addListener(async () => {
-    await importHatebuToBrowser();
-    console.log("imported");
-});
-
 async function importHatebuToBrowser() {
-    const folder_id = await createBookmarkFolder(BOOKMARK_ID);
+    const bookmark_bar_id = await getBookmarkBarId();
+    const folder_id = await createBookmarkFolder(bookmark_bar_id);
 
     oauth.authorize(() => {
         const request = {
@@ -69,6 +78,13 @@ async function deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list) {
             browser.bookmarks.remove(bookmark.id);
         }
     });
+}
+
+async function getBookmarkBarId() {
+    const bookmark_bar_id_hash = await browser.storage.local.get('bookmark_bar_id');
+    const bookmark_bar_id = bookmark_bar_id_hash.bookmark_bar_id;
+    if (bookmark_bar_id === undefined) { alert('Please select a bookmark bar in popup'); }
+    return bookmark_bar_id;
 }
 
 function createBookmarkFolder(bookmark_bar_id) {
