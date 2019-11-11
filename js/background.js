@@ -33,9 +33,6 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
                     });
                 });
             break;
-        case 'setBookmarkBarID':
-            chrome.storage.local.set({ 'bookmark_bar_id': msg.id });
-            break;
         case 'importHatebu':
             importHatebuToBrowser();
             break;

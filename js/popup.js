@@ -2,17 +2,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const select_box = document.getElementById('select-box-bookmark-bar');
     const import_button = document.getElementById('import');
 
-    const cached_bookmark_bar_id = await browser.storage.local.get('bookmark_bar_id');
-    await chrome.runtime.sendMessage({ action: 'getBookmarkBars' });
-    // if (cached_bookmark_bar_id.bookmark_bar_id === undefined) {
-    //     await chrome.runtime.sendMessage({ action: 'getBookmarkBars' });
-    // } else {
-    //     select_box.hidden = true;
-    // }
+    await browser.runtime.sendMessage({
+        action: 'getBookmarkBars'
+    });
 
-    chrome.runtime.onMessage.addListener(msg => {
+    chrome.runtime.onMessage.addListener(async (msg) => {
         if (msg.action == "selectedBookmarkBars") {
             const bookmark_bars = msg.bookmark_bars;
+
+            // ブックマークバーのデフォルト値を設定
+            if (bookmark_bars.length > 0) {
+                await browser.storage.local.set({ 'bookmark_bar_id': bookmark_bars[0].id });
+            }
 
             bookmark_bars.forEach(bookmark_bar => {
                 let select_option = document.createElement('option');
@@ -24,11 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     select_box.addEventListener('change', () => {
-        const bookmark_bar_id = cached_bookmark_bar_id ? cached_bookmark_bar_id.bookmark_bar_id : select_box.value;
-        chrome.runtime.sendMessage({
-            action: 'setBookmarkBarID',
-            id: bookmark_bar_id
-        });
+        chrome.storage.local.set({ 'bookmark_bar_id': select_box.value });
     });
 
     import_button.addEventListener('click', () => {
