@@ -2,7 +2,6 @@ const BOOKMARK_FOLDER = 'Import from hatena bookmark';
 const CONSUMER_KEY = "xxx";
 const CONSUMER_SECRET = "xxx";
 
-var oauth = ChromeExOAuth.initBackgroundPage({
 const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
 
 const oauth = ChromeExOAuth.initBackgroundPage({
@@ -18,15 +17,16 @@ const oauth = ChromeExOAuth.initBackgroundPage({
 chrome.runtime.onMessage.addListener((msg, sender) => {
     switch (msg.action) {
         case 'getAccessToken':
-            const reqToken = oauth.getReqToken();
-            oauth.getAccessToken(reqToken, encodeURIComponent(msg.verifier), () => {
+            const request_token = oauth.getReqToken();
+
+            oauth.getAccessToken(request_token, msg.verifier, () => {
                 console.log("authorized");
             });
             chrome.tabs.remove(sender.tab.id);
             break;
         case 'getBookmarkBars':
             browser.bookmarks.getTree()
-                .then((bookmark_bars_node) => {
+                .then(bookmark_bars_node => {
                     chrome.runtime.sendMessage({
                         action: 'selectedBookmarkBars',
                         bookmark_bars: bookmark_bars_node[0].children
@@ -48,7 +48,7 @@ async function importHatebuToBrowser() {
             'method': 'GET',
             'parameters': {}
         };
-        oauth.sendSignedRequest(BOOKMARK_URL, async (hatebu_list) => {
+        oauth.sendSignedRequest(BOOKMARK_URL, async hatebu_list => {
             const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
             createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
             deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
@@ -57,7 +57,7 @@ async function importHatebuToBrowser() {
 }
 
 async function createBookmarkFromHatebuList(folder_id, parsed_hatebu_list) {
-    parsed_hatebu_list.forEach(async (hatebu) => {
+    parsed_hatebu_list.forEach(async hatebu => {
         const exist_bookmarks = await browser.bookmarks.search({ url: hatebu.url });
         // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
         const bookmarks_exclude_trash = exist_bookmarks.filter(bookmark => !bookmark.trash);
