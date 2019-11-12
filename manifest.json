@@ -5,7 +5,10 @@
     "permissions": [
         "bookmarks",
         "tabs",
-        "<all_urls>",
+        "https://www.hatena.com/oauth/initiate",
+        "https://www.hatena.ne.jp/oauth/authorize",
+        "https://www.hatena.com/oauth/token",
+        "https://b.hatena.ne.jp/my/search.data",
         "storage"
     ],
     "icons": {
@@ -22,7 +25,7 @@
                 "js/browser-polyfill.min.js"
             ],
             "matches": [
-                "<all_urls>"
+                "https://www.hatena.ne.jp/oauth/authorize"
             ]
         }
     ],
