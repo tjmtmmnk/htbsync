@@ -82,33 +82,27 @@ async function deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list) {
 
 async function getBookmarkBarId() {
     const bookmark_bar_id_hash = await browser.storage.local.get('bookmark_bar_id');
-    const bookmark_bar_id = bookmark_bar_id_hash.bookmark_bar_id;
-    if (bookmark_bar_id === undefined) { alert('Please select a bookmark bar in popup'); }
-    return bookmark_bar_id;
+    return bookmark_bar_id_hash.bookmark_bar_id;
 }
 
-function createBookmarkFolder(bookmark_bar_id) {
-    return new Promise(resolve => {
-        const query_for_bookmark_folder = {
-            'title': BOOKMARK_FOLDER,
-            'url': null
-        };
-        browser.bookmarks.search(query_for_bookmark_folder)
-            .then(folders => {
-                const folders_exclude_trash = folders.filter(folder => !folder.trash && folder.parentId == bookmark_bar_id);
-                const create_folder = folders_exclude_trash.length == 0;
-                if (create_folder) {
-                    browser.bookmarks.create({
-                        'parentId': bookmark_bar_id,
-                        'title': BOOKMARK_FOLDER
-                    })
-                        .then(new_folder => resolve(new_folder.id))
-                        .catch(err => console.log(err));
-                } else {
-                    resolve(folders_exclude_trash[0].id);
-                }
-            })
-    });
+async function createBookmarkFolder(bookmark_bar_id) {
+    const query_for_bookmark_folder = {
+        'title': BOOKMARK_FOLDER,
+        'url': null
+    };
+    const folders = await browser.bookmarks.search(query_for_bookmark_folder);
+    const folders_exclude_trash = folders.filter(folder => !folder.trash && folder.parentId == bookmark_bar_id);
+
+    const create_folder = folders_exclude_trash.length == 0;
+    if (create_folder) {
+        const new_folder = await browser.bookmarks.create({
+            'parentId': bookmark_bar_id,
+            'title': BOOKMARK_FOLDER
+        })
+        return new_folder.id;
+    } else {
+        return folders_exclude_trash[0].id;
+    }
 }
 
 /**
