@@ -116,10 +116,13 @@ function createBookmarkFolder(bookmark_bar_id) {
  * @param {{title: "string", comment: "string", url: "string", date: new Date()}} hatena_bookmarks
  */
 function createBookmark(folder_id, hatebu) {
+    const extracted_tags = this.extractHatebuTags(hatebu);
+    const title = extracted_tags === null ? hatebu.title : extracted_tags + ' ' + hatebu.title;
+
     const bookmark = {
         parentId: folder_id,
         url: hatebu.url,
-        title: hatebu.title
+        title: title
     };
     browser.bookmarks.create(bookmark);
 }
@@ -184,4 +187,8 @@ function parseHatenaBookmarkRawData(text) {
         });
         resolve(parsed_hatebu_list);
     });
+}
+
+function extractHatebuTags(hatebu) {
+    return hatebu.comment.match(/^\[.+\]/);
 }
