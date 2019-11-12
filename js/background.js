@@ -61,14 +61,13 @@ async function importHatebuToBrowser() {
 
 async function createBookmarkFromHatebuList(folder_id, parsed_hatebu_list) {
     const trash_folder_node = await browser.bookmarks.getTree();
-    const trash_folder = trash_folder_node[0].children.filter(folder => folder.trash)[0];
+    const trash_folder = trash_folder_node[0].children.filter(folder => folder.trash);
+    const trash_folder_id = trash_folder.length == 0 ? -1 : trash_folder[0].id;
 
     parsed_hatebu_list.forEach(async hatebu => {
         const exist_bookmarks = await browser.bookmarks.search({ url: hatebu.url });
-
-        const bookmarks_exclude_trash = exist_bookmarks.filter(bookmark => !bookmark.trash && bookmark.parentId != trash_folder.id);
+        const bookmarks_exclude_trash = exist_bookmarks.filter(bookmark => !bookmark.trash && bookmark.parentId != trash_folder_id);
         if (bookmarks_exclude_trash.length == 0) {
-            console.log("create " + hatebu.url);
             createBookmark(folder_id, hatebu);
         }
     });
@@ -80,7 +79,6 @@ async function deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list) {
     bookmarks_in_folder.forEach(bookmark => {
         const is_delete = (parsed_hatebu_list.filter(hatebu => hatebu.url == bookmark.url).length == 0);
         if (is_delete) {
-            console.log("delete " + bookmark.url);
             browser.bookmarks.remove(bookmark.id);
         }
     });
