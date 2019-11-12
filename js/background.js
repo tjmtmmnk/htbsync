@@ -23,14 +23,14 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
             chrome.tabs.remove(sender.tab.id);
             break;
         case 'getBookmarkBars':
-            (async function () {
+            (async () => {
                 const bookmark_bars_node = await browser.bookmarks.getTree();
 
                 chrome.runtime.sendMessage({
                     action: 'selectedBookmarkBars',
                     bookmark_bars: bookmark_bars_node[0].children
                 });
-            }());
+            })();
             break;
         case 'importHatebu':
             importHatebuToBrowser();
@@ -60,10 +60,13 @@ async function importHatebuToBrowser() {
 }
 
 async function createBookmarkFromHatebuList(folder_id, parsed_hatebu_list) {
+    const trash_folder_node = await browser.bookmarks.getTree();
+    const trash_folder = trash_folder_node[0].children.filter(folder => folder.trash)[0];
+
     parsed_hatebu_list.forEach(async hatebu => {
         const exist_bookmarks = await browser.bookmarks.search({ url: hatebu.url });
-        // parentIdで絞ると、階層的に2階層以上のブックマークのparentIdがわからなくなるので絞っていない
-        const bookmarks_exclude_trash = exist_bookmarks.filter(bookmark => !bookmark.trash);
+
+        const bookmarks_exclude_trash = exist_bookmarks.filter(bookmark => !bookmark.trash && bookmark.parentId != trash_folder.id);
         if (bookmarks_exclude_trash.length == 0) {
             console.log("create " + hatebu.url);
             createBookmark(folder_id, hatebu);
