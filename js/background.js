@@ -19,19 +19,18 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
         case 'getAccessToken':
             const request_token = oauth.getReqToken();
 
-            oauth.getAccessToken(request_token, msg.verifier, () => {
-                console.log("authorized");
-            });
+            oauth.getAccessToken(request_token, msg.verifier, () => { });
             chrome.tabs.remove(sender.tab.id);
             break;
         case 'getBookmarkBars':
-            browser.bookmarks.getTree()
-                .then(bookmark_bars_node => {
-                    chrome.runtime.sendMessage({
-                        action: 'selectedBookmarkBars',
-                        bookmark_bars: bookmark_bars_node[0].children
-                    });
+            (async function () {
+                const bookmark_bars_node = await browser.bookmarks.getTree();
+
+                chrome.runtime.sendMessage({
+                    action: 'selectedBookmarkBars',
+                    bookmark_bars: bookmark_bars_node[0].children
                 });
+            }());
             break;
         case 'importHatebu':
             importHatebuToBrowser();
@@ -40,20 +39,24 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 });
 
 async function importHatebuToBrowser() {
-    const bookmark_bar_id = await getBookmarkBarId();
-    const folder_id = await createBookmarkFolder(bookmark_bar_id);
+    try {
+        const bookmark_bar_id = await getBookmarkBarId();
+        const folder_id = await createBookmarkFolder(bookmark_bar_id);
 
-    oauth.authorize(() => {
-        const request = {
-            'method': 'GET',
-            'parameters': {}
-        };
-        oauth.sendSignedRequest(BOOKMARK_URL, async hatebu_list => {
-            const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
-            createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
-            deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
-        }, request);
-    });
+        oauth.authorize(() => {
+            const request = {
+                'method': 'GET',
+                'parameters': {}
+            };
+            oauth.sendSignedRequest(BOOKMARK_URL, async hatebu_list => {
+                const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
+                createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
+                deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
+            }, request);
+        });
+    } catch (err) {
+        console.log(err);
+    }
 }
 
 async function createBookmarkFromHatebuList(folder_id, parsed_hatebu_list) {
@@ -81,7 +84,7 @@ async function deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list) {
 }
 
 async function getBookmarkBarId() {
-    const bookmark_bar_id_hash = await browser.storage.local.get('bookmark_bar_id');
+    const bookmark_bar_id_hash = await browser.storage.local.get('bookmark_bar_id').catch(err => { throw err });
     return bookmark_bar_id_hash.bookmark_bar_id;
 }
 
@@ -98,7 +101,7 @@ async function createBookmarkFolder(bookmark_bar_id) {
         const new_folder = await browser.bookmarks.create({
             'parentId': bookmark_bar_id,
             'title': BOOKMARK_FOLDER
-        })
+        }).catch(err => { throw err });
         return new_folder.id;
     } else {
         return folders_exclude_trash[0].id;
@@ -157,30 +160,28 @@ function parseLineByLine(text) {
  * @param {string} text
  * @returns {Promise<{title: "string", comment: "string", url: "string", date: new Date()} []>}
  */
-function parseHatenaBookmarkRawData(text) {
-    return new Promise(resolve => {
-        if (text == null) {
-            resolve([]);
+async function parseHatenaBookmarkRawData(text) {
+    if (text == null) {
+        return [];
+    }
+    var myDataTuple = parseLineByLine(text);
+    if (myDataTuple.bookmarks.length === 0 || myDataTuple.lines.length === 0) {
+        return [];
+    }
+    const parsed_hatebu_list = myDataTuple.lines.map((metaInfo, index) => {
+        var bIndex = index * 3;
+        var timestamp = metaInfo.split("\t", 2)[1];
+        var title = myDataTuple.bookmarks[bIndex];
+        var comment = myDataTuple.bookmarks[bIndex + 1];
+        var url = myDataTuple.bookmarks[bIndex + 2];
+        return {
+            title: title,
+            comment: comment,
+            url: url,
+            date: dateFromString(timestamp)
         }
-        var myDataTuple = parseLineByLine(text);
-        if (myDataTuple.bookmarks.length === 0 || myDataTuple.lines.length === 0) {
-            resolve([]);
-        }
-        const parsed_hatebu_list = myDataTuple.lines.map((metaInfo, index) => {
-            var bIndex = index * 3;
-            var timestamp = metaInfo.split("\t", 2)[1];
-            var title = myDataTuple.bookmarks[bIndex];
-            var comment = myDataTuple.bookmarks[bIndex + 1];
-            var url = myDataTuple.bookmarks[bIndex + 2];
-            return {
-                title: title,
-                comment: comment,
-                url: url,
-                date: dateFromString(timestamp)
-            }
-        });
-        resolve(parsed_hatebu_list);
     });
+    return parsed_hatebu_list;
 }
 
 function extractHatebuTags(hatebu) {
