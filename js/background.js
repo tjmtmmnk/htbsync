@@ -1,16 +1,21 @@
-const BOOKMARK_FOLDER = 'Import from hatena bookmark';
 const CONSUMER_KEY = "xxx";
 const CONSUMER_SECRET = "xxx";
 
+const BOOKMARK_FOLDER = 'Import from hatena bookmark';
 const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
+const USERINFO_URL = "https://bookmark.hatenaapis.com/rest/1/my";
+
+const OAUTH_REQUEST_URL = "https://www.hatena.com/oauth/initiate";
+const OAUTH_AUTHORIZE_URL = "https://www.hatena.ne.jp/oauth/authorize";
+const OAUTH_ACCESS_URL = "https://www.hatena.com/oauth/token";
 
 const oauth = ChromeExOAuth.initBackgroundPage({
-    'request_url': 'https://www.hatena.com/oauth/initiate',
-    'authorize_url': 'https://www.hatena.ne.jp/oauth/authorize',
-    'access_url': 'https://www.hatena.com/oauth/token',
+    'request_url': OAUTH_REQUEST_URL,
+    'authorize_url': OAUTH_AUTHORIZE_URL,
+    'access_url': OAUTH_ACCESS_URL,
     'consumer_key': CONSUMER_KEY,
     'consumer_secret': CONSUMER_SECRET,
-    'scope': 'read_public',
+    'scope': 'read_public,read_private',
     'app_name': 'htbsync'
 });
 
@@ -33,7 +38,9 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
             })();
             break;
         case 'importHatebu':
-            importHatebuToBrowser();
+            oauth.authorize(() => {
+                importHatebuToBrowser();
+            });
             break;
     }
 });
@@ -42,23 +49,29 @@ async function importHatebuToBrowser() {
     try {
         const bookmark_bar_id = await getBookmarkBarId();
         const folder_id = await createBookmarkFolder(bookmark_bar_id);
+        await importHatebu(folder_id);
+    } catch (err) {
+        console.log(err);
+    }
+}
 
-        oauth.authorize(() => {
+async function importHatebu(folder_id) {
+    if (oauth.hasToken()) {
+        return new Promise(resolve => {
             const request = {
                 'method': 'GET',
                 'parameters': {}
             };
             oauth.sendSignedRequest(BOOKMARK_URL, async hatebu_list => {
                 const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
-                createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
-                deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
+                // ブックマークフォルダが存在しない時にdeleteから実行するとエラーになる
+                await createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
+                await deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
+                resolve("imported");
             }, request);
         });
-    } catch (err) {
-        console.log(err);
     }
 }
-
 async function createBookmarkFromHatebuList(folder_id, parsed_hatebu_list) {
     const trash_folder_node = await browser.bookmarks.getTree();
     const trash_folder = trash_folder_node[0].children.filter(folder => folder.trash);
@@ -90,22 +103,38 @@ async function getBookmarkBarId() {
 }
 
 async function createBookmarkFolder(bookmark_bar_id) {
-    const query_for_bookmark_folder = {
-        'title': BOOKMARK_FOLDER,
-        'url': null
-    };
-    const folders = await browser.bookmarks.search(query_for_bookmark_folder);
-    const folders_exclude_trash = folders.filter(folder => !folder.trash && folder.parentId == bookmark_bar_id);
+    if (oauth.hasToken()) {
+        return new Promise(resolve => {
+            const request = {
+                'method': 'GET',
+                'parameters': {}
+            };
+            oauth.sendSignedRequest(USERINFO_URL, async user_str => {
+                const user = JSON.parse(user_str);
+                console.log(user.name);
+                const bookmark_folder_title = user.name + ' ' + BOOKMARK_FOLDER;
 
-    const create_folder = folders_exclude_trash.length == 0;
-    if (create_folder) {
-        const new_folder = await browser.bookmarks.create({
-            'parentId': bookmark_bar_id,
-            'title': BOOKMARK_FOLDER
-        }).catch(err => { throw err });
-        return new_folder.id;
-    } else {
-        return folders_exclude_trash[0].id;
+                // アカウントを切り替えた時に消されないようにアカウントごとにフォルダを分ける
+                const query_for_bookmark_folder = {
+                    'title': bookmark_folder_title,
+                    'url': null
+                };
+                const folders = await browser.bookmarks.search(query_for_bookmark_folder);
+                const folders_exclude_trash = folders.filter(folder => !folder.trash && folder.parentId == bookmark_bar_id);
+
+                const create_folder = folders_exclude_trash.length == 0;
+
+                if (create_folder) {
+                    const new_folder = await browser.bookmarks.create({
+                        'parentId': bookmark_bar_id,
+                        'title': bookmark_folder_title
+                    });
+                    resolve(new_folder.id);
+                } else {
+                    resolve(folders_exclude_trash[0].id);
+                }
+            }, request);
+        });
     }
 }
 
@@ -122,6 +151,7 @@ function createBookmark(folder_id, hatebu) {
         url: hatebu.url,
         title: title
     };
+    console.log("create " + hatebu.url);
     browser.bookmarks.create(bookmark);
 }
 
