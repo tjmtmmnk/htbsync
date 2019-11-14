@@ -53,10 +53,28 @@ async function importHatebuToBrowser() {
     try {
         const bookmark_bar_id = await getBookmarkBarId();
         const folder_id = await createBookmarkFolder(bookmark_bar_id);
-        importHatebu(folder_id);
+        const hatebu_list = await fetchHatebuList();
+        // ブックマークフォルダが存在しない時にdeleteから実行するとエラーになる
+        await createBookmarkFromHatebuList(folder_id, hatebu_list);
+        await deleteBookmarkNotInHatebuList(folder_id, hatebu_list);
     } catch (err) {
         console.log(err);
     }
+}
+
+async function fetchHatebuList() {
+    return new Promise(resolve => {
+        if (oauth.hasToken()) {
+            const request = {
+                'method': 'GET',
+                'parameters': {}
+            };
+            oauth.sendSignedRequest(BOOKMARK_URL, async hatebu_list => {
+                const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
+                resolve(parsed_hatebu_list);
+            }, request);
+        }
+    });
 }
 
 async function importHatebu(folder_id) {
@@ -105,8 +123,8 @@ async function getBookmarkBarId() {
 }
 
 async function createBookmarkFolder(bookmark_bar_id) {
-    if (oauth.hasToken()) {
-        return new Promise(resolve => {
+    return new Promise(resolve => {
+        if (oauth.hasToken()) {
             const request = {
                 'method': 'GET',
                 'parameters': {}
@@ -134,8 +152,8 @@ async function createBookmarkFolder(bookmark_bar_id) {
                     resolve(folders_exclude_trash[0].id);
                 }
             }, request);
-        });
-    }
+        }
+    });
 }
 
 /**
