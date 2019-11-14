@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const select_box = document.getElementById('select-box-bookmark-bar');
     const import_button = document.getElementById('import');
+    const logout_button = document.getElementById('logout');
 
     await browser.runtime.sendMessage({
         action: 'getBookmarkBars'
@@ -31,6 +32,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     import_button.addEventListener('click', () => {
         chrome.runtime.sendMessage({
             action: 'importHatebu'
+        });
+    });
+
+    logout_button.addEventListener('click', () => {
+        chrome.runtime.sendMessage({
+            action: 'logout'
         });
     });
 });

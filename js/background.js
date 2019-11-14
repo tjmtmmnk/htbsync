@@ -42,6 +42,9 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
                 importHatebuToBrowser();
             });
             break;
+        case 'logout':
+            oauth.clearTokens();
+            break;
     }
 });
 
@@ -49,7 +52,7 @@ async function importHatebuToBrowser() {
     try {
         const bookmark_bar_id = await getBookmarkBarId();
         const folder_id = await createBookmarkFolder(bookmark_bar_id);
-        await importHatebu(folder_id);
+        importHatebu(folder_id);
     } catch (err) {
         console.log(err);
     }
@@ -57,21 +60,19 @@ async function importHatebuToBrowser() {
 
 async function importHatebu(folder_id) {
     if (oauth.hasToken()) {
-        return new Promise(resolve => {
-            const request = {
-                'method': 'GET',
-                'parameters': {}
-            };
-            oauth.sendSignedRequest(BOOKMARK_URL, async hatebu_list => {
-                const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
-                // ブックマークフォルダが存在しない時にdeleteから実行するとエラーになる
-                await createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
-                await deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
-                resolve("imported");
-            }, request);
-        });
+        const request = {
+            'method': 'GET',
+            'parameters': {}
+        };
+        oauth.sendSignedRequest(BOOKMARK_URL, async hatebu_list => {
+            const parsed_hatebu_list = await parseHatenaBookmarkRawData(hatebu_list);
+            // ブックマークフォルダが存在しない時にdeleteから実行するとエラーになる
+            await createBookmarkFromHatebuList(folder_id, parsed_hatebu_list);
+            await deleteBookmarkNotInHatebuList(folder_id, parsed_hatebu_list);
+        }, request);
     }
 }
+
 async function createBookmarkFromHatebuList(folder_id, parsed_hatebu_list) {
     const trash_folder_node = await browser.bookmarks.getTree();
     const trash_folder = trash_folder_node[0].children.filter(folder => folder.trash);
@@ -111,10 +112,8 @@ async function createBookmarkFolder(bookmark_bar_id) {
             };
             oauth.sendSignedRequest(USERINFO_URL, async user_str => {
                 const user = JSON.parse(user_str);
-                console.log(user.name);
                 const bookmark_folder_title = user.name + ' ' + BOOKMARK_FOLDER;
 
-                // アカウントを切り替えた時に消されないようにアカウントごとにフォルダを分ける
                 const query_for_bookmark_folder = {
                     'title': bookmark_folder_title,
                     'url': null
@@ -143,7 +142,7 @@ async function createBookmarkFolder(bookmark_bar_id) {
  * @param {{title: "string", comment: "string", url: "string", date: new Date()}} hatena_bookmarks
  */
 function createBookmark(folder_id, hatebu) {
-    const extracted_tags = this.extractHatebuTags(hatebu);
+    const extracted_tags = extractHatebuTags(hatebu);
     const title = extracted_tags === null ? hatebu.title : extracted_tags + ' ' + hatebu.title;
 
     const bookmark = {
