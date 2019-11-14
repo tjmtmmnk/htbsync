@@ -44,6 +44,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
             break;
         case 'logout':
             oauth.clearTokens();
+            alert('Logout');
             break;
     }
 });
