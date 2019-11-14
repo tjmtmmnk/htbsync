@@ -9,6 +9,29 @@
             position: relative;
             vertical-align: middle;
         }
+
+        .btn-import {
+            display: inline-block;
+            padding: 0.5em 1em;
+            text-decoration: none;
+            background: #668ad8;
+            color: #FFF;
+            border-bottom: solid 4px #627295;
+            border-radius: 3px;
+        }
+
+        .btn-logout {
+            position: relative;
+            display: inline-block;
+            padding: 0.25em 0.5em;
+            text-decoration: none;
+            color: #F00;
+            background: #FFF;
+            border: solid 1px #0f9ada;
+            border-radius: 4px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+        }
     </style>
 </head>
 
@@ -17,7 +40,8 @@
         <form method="post" action="">
             <select id="select-box-bookmark-bar"></select>
         </form>
-        <button id="import" type="button">Import</button>
+        <button id="import" type="button" class="btn-import">Import</button>
+        <button id="logout" type="button" class="btn-logout">Logout</button>
     </div>
     <script type="text/javascript" src="js/popup.js"></script>
     <script type="text/javascript" src="js/browser-polyfill.min.js"></script>

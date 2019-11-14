@@ -111,6 +111,7 @@ ChromeExOAuth.prototype.authorize = function (callback) {
 ChromeExOAuth.prototype.clearTokens = function () {
   delete localStorage[this.key_token + encodeURI(this.oauth_scope)];
   delete localStorage[this.key_token_secret + encodeURI(this.oauth_scope)];
+  delete localStorage["reqToken"];
 };
 
 /**

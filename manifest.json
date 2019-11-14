@@ -9,6 +9,7 @@
         "https://www.hatena.ne.jp/oauth/authorize",
         "https://www.hatena.com/oauth/token",
         "https://b.hatena.ne.jp/my/search.data",
+        "https://bookmark.hatenaapis.com/rest/1/my",
         "storage"
     ],
     "icons": {
