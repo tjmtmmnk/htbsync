@@ -26,4 +26,4 @@ sync hatena-bookmark with chrome-extension work browser
 
 9. you can see your hatena-bookmarks are imported in your selected `bookmark-bar/Import from hatena bookmark`.
 
-<img src="https://user-images.githubusercontent.com/31027514/68651489-de272100-056a-11ea-9e87-8c9428013a71.png" width="500">
+<img src="https://user-images.githubusercontent.com/31027514/69059507-04602b80-0a59-11ea-8067-7808520ccf45.png" width="500">
