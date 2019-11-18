@@ -32,10 +32,10 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
             chrome.tabs.remove(sender.tab.id);
             break;
 
-        case 'importHatebu':
+        case 'syncHatebu':
             (async () => {
                 oauth.authorize(() => {
-                    importHatebuToBrowser();
+                    syncHatebuToBrowser();
                 });
             })();
             break;
@@ -57,7 +57,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     }
 });
 
-async function importHatebuToBrowser() {
+async function syncHatebuToBrowser() {
     try {
         const bookmark_bar_id = await getBookmarkBarId();
         const folder_id = await createBookmarkFolder(bookmark_bar_id);
@@ -85,7 +85,7 @@ async function fetchHatebuList() {
     });
 }
 
-async function importHatebu(folder_id) {
+async function syncHatebu(folder_id) {
     if (oauth.hasToken()) {
         const request = {
             'method': 'GET',

@@ -7,9 +7,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.close();
     }
 
-    const select_box = document.getElementById('select-box-bookmark-bar');
-    const import_button = document.getElementById('import');
-    const logout_button = document.getElementById('logout');
+    const select_box = document.getElementById('bookmark-bar-select-box');
+    const sync_button = document.getElementById('sync-button');
+    const logout_button = document.getElementById('logout-button');
 
     await browser.runtime.sendMessage({
         action: 'getBookmarkBars'
@@ -37,8 +37,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         chrome.storage.local.set({ 'bookmark_bar_id': select_box.value });
     });
 
-    import_button.addEventListener('click', () => {
-        chrome.runtime.sendMessage({ action: 'importHatebu' });
+    sync_button.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ action: 'syncHatebu' });
     });
 
     logout_button.addEventListener('click', () => {
