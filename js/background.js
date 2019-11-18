@@ -1,6 +1,3 @@
-const CONSUMER_KEY = "xxx";
-const CONSUMER_SECRET = "xxx";
-
 const BOOKMARK_FOLDER = 'Import from hatena bookmark';
 const BOOKMARK_URL = "https://b.hatena.ne.jp/my/search.data";
 const USERINFO_URL = "https://bookmark.hatenaapis.com/rest/1/my";
@@ -9,42 +6,53 @@ const OAUTH_REQUEST_URL = "https://www.hatena.com/oauth/initiate";
 const OAUTH_AUTHORIZE_URL = "https://www.hatena.ne.jp/oauth/authorize";
 const OAUTH_ACCESS_URL = "https://www.hatena.com/oauth/token";
 
-const oauth = ChromeExOAuth.initBackgroundPage({
-    'request_url': OAUTH_REQUEST_URL,
-    'authorize_url': OAUTH_AUTHORIZE_URL,
-    'access_url': OAUTH_ACCESS_URL,
-    'consumer_key': CONSUMER_KEY,
-    'consumer_secret': CONSUMER_SECRET,
-    'scope': 'read_public,read_private',
-    'app_name': 'htbsync'
-});
+
+let oauth;
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
     switch (msg.action) {
+        case 'setConsumerKey':
+            (async () => {
+                const keys = await browser.storage.local.get(['consumer_key', 'consumer_secret']);
+                oauth = ChromeExOAuth.initBackgroundPage({
+                    'request_url': OAUTH_REQUEST_URL,
+                    'authorize_url': OAUTH_AUTHORIZE_URL,
+                    'access_url': OAUTH_ACCESS_URL,
+                    'consumer_key': keys.consumer_key,
+                    'consumer_secret': keys.consumer_secret,
+                    'scope': 'read_public,read_private',
+                    'app_name': 'htbsync'
+                });
+            })();
+            break;
         case 'getAccessToken':
             const request_token = oauth.getReqToken();
 
             oauth.getAccessToken(request_token, msg.verifier, () => { });
             chrome.tabs.remove(sender.tab.id);
             break;
+
+        case 'importHatebu':
+            (async () => {
+                oauth.authorize(() => {
+                    importHatebuToBrowser();
+                });
+            })();
+            break;
+
+        case 'logout':
+            oauth.clearTokens();
+            alert('Logout');
+            break;
+
         case 'getBookmarkBars':
             (async () => {
                 const bookmark_bars_node = await browser.bookmarks.getTree();
-
                 chrome.runtime.sendMessage({
                     action: 'selectedBookmarkBars',
                     bookmark_bars: bookmark_bars_node[0].children
                 });
             })();
-            break;
-        case 'importHatebu':
-            oauth.authorize(() => {
-                importHatebuToBrowser();
-            });
-            break;
-        case 'logout':
-            oauth.clearTokens();
-            alert('Logout');
             break;
     }
 });
