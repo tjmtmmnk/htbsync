@@ -65,6 +65,7 @@ async function syncHatebuToBrowser() {
         // ブックマークフォルダが存在しない時にdeleteから実行するとエラーになる
         await createBookmarkFromHatebuList(folder_id, hatebu_list);
         await deleteBookmarkNotInHatebuList(folder_id, hatebu_list);
+        alert("done!");
     } catch (err) {
         console.log(err);
     }
