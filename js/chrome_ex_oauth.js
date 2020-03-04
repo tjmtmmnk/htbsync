@@ -28,8 +28,7 @@ function ChromeExOAuth(url_request_token, url_auth_token, url_access_token,
     "ChromeExOAuth Library";
   this.key_token = "oauth_token";
   this.key_token_secret = "oauth_token_secret";
-  this.callback_page = opt_args && opt_args['callback_page'] ||
-    "chrome_ex_oauth.html";
+  this.callback_page = "chrome_ex_oauth.html";
   this.auth_params = {};
   if (opt_args && opt_args['auth_params']) {
     for (key in opt_args['auth_params']) {
@@ -100,7 +99,7 @@ ChromeExOAuth.prototype.authorize = function (callback) {
     window.chromeExOAuthOnAuthorize = function (token, secret) {
       callback(token, secret);
     };
-    chrome.tabs.create({ 'url': chrome.extension.getURL(this.callback_page) });
+    chrome.tabs.create({ url: 'chrome_extension_oauth.html' });
   }
 };
 
