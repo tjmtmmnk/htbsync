@@ -1,6 +1,6 @@
 {
     "name": "htbsync",
-    "version": "1.0",
+    "version": "1.2",
     "description": "はてなブックマークとブラウザ(chromeなど)のブックマークを同期します",
     "permissions": [
         "bookmarks",
