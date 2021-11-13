@@ -1,12 +1,4 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    const keys = await browser.storage.local.get(['consumer_key', 'consumer_secret']);
-    const is_set_consumer_key = keys.consumer_key !== undefined && keys.consumer_secret !== undefined;
-    if (!is_set_consumer_key) {
-        alert('Please set your consumer key in option page');
-        chrome.runtime.openOptionsPage();
-        window.close();
-    }
-
     const select_box = document.getElementById('bookmark-bar-select-box');
     const sync_button = document.getElementById('sync-button');
     const logout_button = document.getElementById('logout-button');

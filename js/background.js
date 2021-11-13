@@ -7,24 +7,18 @@ const OAUTH_AUTHORIZE_URL = "https://www.hatena.ne.jp/oauth/authorize";
 const OAUTH_ACCESS_URL = "https://www.hatena.com/oauth/token";
 
 
-let oauth;
-
-chrome.runtime.onMessage.addListener((msg, sender) => {
-    switch (msg.action) {
-        case 'setConsumerKey':
-            (async () => {
-                const keys = await browser.storage.local.get(['consumer_key', 'consumer_secret']);
-                oauth = ChromeExOAuth.initBackgroundPage({
+const oauth = ChromeExOAuth.initBackgroundPage({
                     'request_url': OAUTH_REQUEST_URL,
                     'authorize_url': OAUTH_AUTHORIZE_URL,
                     'access_url': OAUTH_ACCESS_URL,
-                    'consumer_key': keys.consumer_key,
-                    'consumer_secret': keys.consumer_secret,
+                    'consumer_key': "YOUR_CONSUMER_KEY",
+                    'consumer_secret': "YOUR_CONSUMER_SECRET_KEY",
                     'scope': 'read_public,read_private',
                     'app_name': 'htbsync'
-                });
-            })();
-            break;
+});
+
+chrome.runtime.onMessage.addListener((msg, sender) => {
+    switch (msg.action) {
         case 'getAccessToken':
             const request_token = oauth.getReqToken();
 
